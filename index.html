@@ -127,7 +127,7 @@
             <button data-tab="pages">Sayfalar</button>
           </div>
           <div class="tab-body" id="tab-game">
-            <div class="small">Ok tuşları: seçili karakteri hareket ettirir. Kanvasta tıklayarak karakter seç. P: duraklat, R: ortala.</div>
+            <div class="small">Ok tuşları: seçili karakteri hareket ettirir. Kanvasta tıklayarak karakter seç. P: duraklat, R: ortala. 1-9: karakter seç, 0: tümü seç.</div>
           </div>
           <div class="tab-body" id="tab-chars" style="display:none"></div>
           <div class="tab-body" id="tab-bg" style="display:none"></div>
@@ -475,6 +475,23 @@
               this.resetFormation();
               this.triggerShake(SETTINGS.SHAKE_DURATION_MS);
             }
+          } else if (e.key >= '1' && e.key <= '9') {
+            // Sayı tuşları ile karakter seçimi (1-9)
+            if (this.input.consumeJustPressed(e.key)) {
+              const charIndex = parseInt(e.key, 10) - 1; // 1-9 -> 0-8
+              if (charIndex < this.stickmen.length) {
+                this.selected.clear();
+                this.selected.add(charIndex);
+              }
+            }
+          } else if (e.key === '0') {
+            // 0 tuşu ile tüm karakterleri seç
+            if (this.input.consumeJustPressed(e.key)) {
+              this.selected.clear();
+              for (let i = 0; i < this.stickmen.length; i++) {
+                this.selected.add(i);
+              }
+            }
           }
         }
 
@@ -628,7 +645,7 @@
           if (this.paused) hudText.push('Duraklatıldı (P)');
           hudText.push(`Çöp Adam: ${this.stickmen.length}`);
           hudText.push(`Seçili: ${this.selected.size}`);
-          hudText.push('Ok tuşları: hareket  |  P: duraklat  |  R: ortala');
+          hudText.push('Ok tuşları: hareket  |  P: duraklat  |  R: ortala  |  1-9: karakter seç  |  0: tümü seç');
           this.hud.textContent = hudText.join('   •   ');
 
           requestAnimationFrame(this.loop);
