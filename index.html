@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Çöp Adam - Canvas Demo</title>
+    <style>
+      /* Tam ekran, scroll yok, dokunmada kaydırmayı kapat */
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #111;
+        color: #eee;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: none;
+        overscroll-behavior: none;
+      }
+
+      /* Canvas tam ekran; CSS boyutu mantıksal piksel, gerçek piksel tuvali JS ayarlayacak */
+      canvas#game {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        outline: none;
+        cursor: default;
+      }
+
+      /* İsteğe bağlı: duraklatma etiketi */
+      .hud {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: 0;
+        display: flex;
+        justify-content: center;
+        padding: 10px 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-size: 14px;
+        pointer-events: none;
+        text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      }
+
+      /* Basit kontrol paneli */
+      .panel {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        background: rgba(18,18,18,.9);
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 12px;
+        padding: 14px;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        font-size: 13px;
+        color: #eee;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 12px 32px rgba(0,0,0,.5);
+      }
+      .panel label { display: grid; gap: 6px; }
+      .panel input[type="file"] { color: #ddd; }
+      .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+      .tabs button { cursor: pointer; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #eee; }
+      .tabs button.active { background: rgba(0,255,255,.15); border-color: rgba(0,255,255,.5); }
+      .tab-body { min-width: 420px; max-width: 840px; display: grid; gap: 10px; max-height: 70vh; overflow: auto; }
+      .row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+      .list { display: grid; gap: 12px; max-height: 40vh; overflow: auto; padding-right: 4px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); align-content: start; }
+      .small { opacity: .8; font-size: 11px; }
+      .char-card { display: grid; gap: 10px; border: 2px solid #2b2b2b; border-radius: 12px; padding: 12px; background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 4px 12px rgba(0,0,0,.2); }
+      .cardHeader { display: flex; justify-content: space-between; align-items: center; }
+      .btn { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #eee; cursor: pointer; }
+      .btn.block { width: 100%; text-align: center; }
+      .btn.secondary { background: rgba(0,0,0,.25); }
+      .btn.danger { background: rgba(255,0,0,.1); border-color: rgba(255,0,0,.35); }
+      .card-main { display: grid; grid-template-rows: auto 1fr; gap: 12px; }
+      .card-controls { display: grid; gap: 8px; min-width: 180px; }
+      .control-group { background: rgba(0,0,0,.15); border-radius: 8px; padding: 8px; }
+      .control-group > label { font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; opacity: .9; margin-bottom: 4px; }
+      .input-row { display: flex; gap: 6px; align-items: center; }
+      .input-row input[type="color"] { width: 32px; height: 24px; border-radius: 4px; border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
+      .input-row input[type="file"] { font-size: 10px; flex: 1; }
+
+      /* Yüzen ayar butonu */
+      .fab {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,.2);
+        background: rgba(255,255,255,.08);
+        color: #eee;
+        font-size: 22px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 10px 24px rgba(0,0,0,.4);
+      }
+
+      /* Modal */
+      .modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.45); }
+      .modal.hidden { display: none; }
+      .modal-dialog { width: min(92vw, 920px); max-height: 86vh; overflow: auto; border-radius: 14px; }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+      .modal-actions button { padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #eee; cursor: pointer; }
+      .emoji-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+      .emoji-grid button { font-size: 22px; padding: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.08); color: #eee; cursor: pointer; }
+      .thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+      .thumb { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 3/2; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.15); cursor: pointer; background: rgba(255,255,255,.04); }
+      .thumb canvas { width: 100%; height: 100%; display: block; }
+      .thumb:hover { outline: 2px solid rgba(0,255,255,.35); outline-offset: 2px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <canvas id="game" aria-label="Çöp Adam Oyun Canvas"></canvas>
+    <div class="hud" id="hud"></div>
+    <button id="openSettings" class="fab" title="Ayarlar">⚙️</button>
+    <div id="modal" class="modal hidden" aria-modal="true" role="dialog">
+      <div class="modal-dialog">
+        <div class="panel" aria-label="Kontroller" id="ui">
+          <div class="tabs">
+            <button data-tab="game" class="active">Oyun</button>
+            <button data-tab="chars">Karakterler</button>
+            <button data-tab="bg">Arka Plan</button>
+            <button data-tab="pages">Sayfalar</button>
+          </div>
+          <div class="tab-body" id="tab-game">
+            <div class="small">Ok tuşları: seçili karakteri hareket ettirir. Kanvasta tıklayarak karakter seç. P: duraklat, R: ortala.</div>
+          </div>
+          <div class="tab-body" id="tab-chars" style="display:none"></div>
+          <div class="tab-body" id="tab-bg" style="display:none"></div>
+          <div class="tab-body" id="tab-pages" style="display:none"></div>
+        </div>
+        <div class="modal-actions"><button id="closeModal">Kapat</button></div>
+      </div>
+    </div>
+    <!-- Ekipman seçim alt modalı -->
+    <div id="equipModal" class="modal hidden" aria-modal="true" role="dialog">
+      <div class="modal-dialog">
+        <div class="panel">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <strong>Ekipman seç</strong>
+            <button id="equipCloseTop" class="small" style="border:1px solid rgba(255,255,255,.2);border-radius:8px;background:rgba(255,255,255,.08);color:#eee;cursor:pointer;padding:4px 8px;">Kapat</button>
+          </div>
+          <div class="emoji-grid" id="equipGrid"></div>
+          <div class="row"><label>Özel resim</label><input id="equipFile" type="file" accept="image/*"></div>
+          <div class="modal-actions"><button id="equipClose">Kapat</button></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // =====================
+      // Sabitler ve ayarlar
+      // =====================
+      const SETTINGS = {
+        // Hareket hızı mantıksal piksel/saniye
+        SPEED_PX_PER_SEC: 200,
+        // Çöp adam görsel yarıçapı (baş merkezinden sınır kontrolü için kapsayıcı yarıçap)
+        PLAYER_BOUNDING_RADIUS: 24,
+        // Delta time üst sınırı (arka plana alındığında dev adımları önlemek için)
+        MAX_DT_SECONDS: 0.1,
+        // Arka plan kaynağı; assets klasöründen okunur
+        BACKGROUND_SRC: 'assets/bg.jpg',
+        // Reset sonrası hafif kamera sarsıntısı süresi
+        SHAKE_DURATION_MS: 150,
+        // Sarsıntı genliği (mantıksal piksel)
+        SHAKE_AMPLITUDE_PX: 6,
+      };
+
+      // =====================
+      // Yardımcılar
+      // =====================
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function length(x, y) {
+        return Math.hypot(x, y);
+      }
+
+      function normalize(x, y) {
+        const len = length(x, y);
+        if (len === 0) return { x: 0, y: 0 };
+        return { x: x / len, y: y / len };
+      }
+
+      // =====================
+      // Input sınıfı
+      // =====================
+      class Input {
+        // Klavye ve dokunmatik yön girdilerini birleştirir
+        constructor(targetElement) {
+          this.target = targetElement || window;
+          this.keyState = new Set();
+          this.justPressed = new Set();
+          // Dokunmatik/pointer yönleri (birden fazla temas birleşimi)
+          this.pointerDirsById = new Map();
+          this.activePointerIds = new Set();
+
+          // Klavye
+          window.addEventListener('keydown', (e) => {
+            // Ok tuşlarında sayfa kaymasını engelle
+            if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
+            if (!this.keyState.has(e.key)) this.justPressed.add(e.key);
+            this.keyState.add(e.key);
+          }, { passive: false });
+          window.addEventListener('keyup', (e) => {
+            this.keyState.delete(e.key);
+          });
+
+          // Pointer/dokunma: görünmez dört bölgeli overlay mantığı
+          const onPointer = (type, e) => {
+            // Canvas koordinatlarında konum bul
+            const rect = this.target.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const id = e.pointerId || 0; // mouse için 0
+            if (type === 'down') {
+              this.activePointerIds.add(id);
+              this.pointerDirsById.set(id, this._posToDirs(x, y, rect.width, rect.height));
+            } else if (type === 'move') {
+              // Yalnızca basılı pointer/mouse sürükleme kabul edilir (fareyi takip etmesin)
+              const isPressed = this.activePointerIds.has(id) || (e.buttons && e.buttons !== 0) || (e.pressure && e.pressure > 0);
+              if (!isPressed) return;
+              this.pointerDirsById.set(id, this._posToDirs(x, y, rect.width, rect.height));
+            } else if (type === 'up' || type === 'cancel') {
+              this.activePointerIds.delete(id);
+              this.pointerDirsById.delete(id);
+            }
+          };
+
+          this.target.addEventListener('pointerdown', (e) => onPointer('down', e));
+          this.target.addEventListener('pointermove', (e) => onPointer('move', e));
+          window.addEventListener('pointerup', (e) => onPointer('up', e));
+          window.addEventListener('pointercancel', (e) => onPointer('cancel', e));
+        }
+
+        _posToDirs(x, y, w, h) {
+          // Dört bölgeli kontrol: ekran merkezi referans
+          const left = x < w * 0.33;
+          const right = x > w * 0.67;
+          const up = y < h * 0.33;
+          const down = y > h * 0.67;
+          return { left, right, up, down };
+        }
+
+        consumeJustPressed(key) {
+          const had = this.justPressed.has(key);
+          this.justPressed.delete(key);
+          return had;
+        }
+
+        // Birleşik yön vektörü (klavye + dokunma)
+        getDirection() {
+          let dx = 0, dy = 0;
+          // Klavye
+          if (this.keyState.has('ArrowLeft')) dx -= 1;
+          if (this.keyState.has('ArrowRight')) dx += 1;
+          if (this.keyState.has('ArrowUp')) dy -= 1;
+          if (this.keyState.has('ArrowDown')) dy += 1;
+
+          // Dokunma: herhangi bir temas yönü birleşsin
+          let touchLeft = false, touchRight = false, touchUp = false, touchDown = false;
+          for (const dirs of this.pointerDirsById.values()) {
+            touchLeft = touchLeft || dirs.left;
+            touchRight = touchRight || dirs.right;
+            touchUp = touchUp || dirs.up;
+            touchDown = touchDown || dirs.down;
+          }
+          if (touchLeft) dx -= 1;
+          if (touchRight) dx += 1;
+          if (touchUp) dy -= 1;
+          if (touchDown) dy += 1;
+
+          const n = normalize(dx, dy);
+          return n;
+        }
+      }
+
+      // =====================
+      // Player sınıfı
+      // =====================
+      class Stickman {
+        constructor(x, y, headImage = null, color = '#f5f5f5', leftHand = null, rightHand = null) {
+          this.x = x;
+          this.y = y;
+          this.headImage = headImage; // Yüklü PNG baş (opsiyonel)
+          this.color = color;
+          // Ekipman (sol ve sağ el) - Image veya Emoji çizimi
+          this.leftHand = leftHand;   // { type: 'emoji'|'image', value: '🔫'|HTMLImageElement, size: number }
+          this.rightHand = rightHand; // aynı yapı
+          // Basit çöp adam animasyonu için durum
+          this.animationElapsed = 0;
+          this.animationPhase = 0; // 0-1 arası ileri geri
+          this.isMoving = false;
+        }
+
+        resetTo(x, y) {
+          this.x = x;
+          this.y = y;
+          this.animationElapsed = 0;
+          this.animationPhase = 0;
+          this.isMoving = false;
+        }
+
+        update(dt, input, boundsW, boundsH) {
+          const dir = input.getDirection();
+          const speed = SETTINGS.SPEED_PX_PER_SEC;
+          const vx = dir.x * speed;
+          const vy = dir.y * speed;
+          this.isMoving = (vx !== 0 || vy !== 0);
+
+          this.x += vx * dt;
+          this.y += vy * dt;
+
+          // Ekran sınırları içinde kal
+          const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
+          this.x = clamp(this.x, r, Math.max(r, boundsW - r));
+          this.y = clamp(this.y, r, Math.max(r, boundsH - r));
+
+          // Yürüme animasyonu sadece hareketliyken ilerler
+          if (this.isMoving) {
+            const animSpeed = 6;
+            this.animationElapsed += dt * animSpeed;
+          }
+          // 0..1 arasında ping-pong fazı
+          const t = this.animationElapsed % 2; // 0..2
+          this.animationPhase = t < 1 ? t : (2 - t);
+        }
+
+        draw(ctx) {
+          // Çöp adamı basit şekillerle çiz (baş, gövde, kollar, bacaklar)
+          ctx.save();
+          ctx.translate(this.x, this.y);
+
+          const headRadius = 14;
+          const bodyLen = 30;
+          const limbLen = 24; // daha uzun
+
+          // Animasyon fazını açılara çevir
+          const swing = 0.9 * (this.animationPhase * 2 - 1); // -amp..+amp, sadece hareketliyken kullanılacak
+
+          ctx.lineCap = 'round';
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = this.color || '#f5f5f5';
+
+          // Baş: varsa PNG, yoksa daire
+          const headCenterY = -headRadius - 4;
+          if (this.headImage && this.headImage.complete && this.headImage.naturalWidth > 0) {
+            const size = headRadius * 2;
+            ctx.drawImage(this.headImage, -size / 2, headCenterY - size / 2, size, size);
+          } else {
+            ctx.beginPath();
+            ctx.arc(0, headCenterY, headRadius, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          // Gövde
+          ctx.beginPath();
+          ctx.moveTo(0, -4);
+          ctx.lineTo(0, bodyLen);
+          ctx.stroke();
+
+          // Kollar: hareketliyken zıt salınım, dururken açık sabit poz
+          const armAngle = this.isMoving ? swing * 0.9 : 0.9;
+          const armAngleOpp = this.isMoving ? -armAngle : -0.9;
+          const shoulderY = 10;
+          // Kolları ve ellerin konumlarını hesapla
+          const leftHandPos = { x: Math.sin(armAngle) * limbLen, y: shoulderY + Math.cos(armAngle) * limbLen };
+          const rightHandPos = { x: Math.sin(armAngleOpp) * limbLen, y: shoulderY + Math.cos(armAngleOpp) * limbLen };
+          ctx.beginPath();
+          ctx.moveTo(0, shoulderY);
+          ctx.lineTo(leftHandPos.x, leftHandPos.y);
+          ctx.moveTo(0, shoulderY);
+          ctx.lineTo(rightHandPos.x, rightHandPos.y);
+          ctx.stroke();
+
+          // Bacaklar: hareketliyken kollarla ters faz, dururken açık sabit poz
+          const legAngle = this.isMoving ? -swing * 1.1 : 1.1;
+          const legAngleOpp = this.isMoving ? -legAngle : -1.1;
+          ctx.beginPath();
+          ctx.moveTo(0, bodyLen);
+          ctx.lineTo(Math.sin(legAngle) * limbLen, bodyLen + Math.cos(legAngle) * limbLen);
+          ctx.moveTo(0, bodyLen);
+          ctx.lineTo(Math.sin(legAngleOpp) * limbLen, bodyLen + Math.cos(legAngleOpp) * limbLen);
+          ctx.stroke();
+
+          // Ekipman çizimi (eller)
+          this.drawEquipment(ctx, leftHandPos, rightHandPos);
+
+          ctx.restore();
+        }
+
+        drawEquipment(ctx, leftPos, rightPos) {
+          const drawItem = (item, pos) => {
+            if (!item) return;
+            const size = item.size || 22;
+            if (item.type === 'emoji') {
+              ctx.save();
+              ctx.font = `${size}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(item.value, pos.x, pos.y);
+              ctx.restore();
+            } else if (item.type === 'image' && item.value && item.value.complete) {
+              ctx.drawImage(item.value, pos.x - size/2, pos.y - size/2, size, size);
+            }
+          };
+          drawItem(this.leftHand, leftPos);
+          drawItem(this.rightHand, rightPos);
+        }
+      }
+
+      // =====================
+      // Game sınıfı
+      // =====================
+      class Game {
+        constructor(canvas, hudEl) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext('2d');
+          this.hud = hudEl;
+          this.input = new Input(canvas);
+          this.dpr = Math.max(1, window.devicePixelRatio || 1);
+
+          // Arka plan resmi
+          this.bgImg = new Image();
+          this.bgImgLoaded = false;
+          this.bgImg.addEventListener('load', () => { this.bgImgLoaded = true; });
+          this.bgImg.addEventListener('error', () => { this.bgImgLoaded = false; });
+          this.bgImg.src = SETTINGS.BACKGROUND_SRC;
+
+          // Boyutlar (mantıksal px)
+          this.width = 0;
+          this.height = 0;
+
+          // Kamera sarsıntısı
+          this.shakeUntil = 0;
+
+          // Çoklu çöp adam listesi (anlık runtime kopyası)
+          this.stickmen = [];
+          // Çoklu seçim desteği
+          this.selected = new Set();
+
+          // Durum (localStorage ile)
+          this.state = null;
+          this.lastAutosave = performance.now();
+
+          // Oyun akışı
+          this.paused = false;
+          this.lastTime = performance.now();
+
+          // Olaylar
+          window.addEventListener('resize', () => this.resize());
+          window.addEventListener('keydown', (e) => this.onKeyDown(e));
+          // Çöp adam seçimi için tıklama
+          this.canvas.addEventListener('click', (e) => this.onCanvasClick(e));
+
+          this.resize();
+          this.loop = this.loop.bind(this);
+          requestAnimationFrame(this.loop);
+        }
+
+        onKeyDown(e) {
+          // Duraklatma / yeniden başlatma kontrolü
+          if (e.key === 'p' || e.key === 'P') {
+            // Tekrarlı baskıda toggle yağmurunu önlemek için justPressed kullan
+            if (this.input.consumeJustPressed(e.key)) {
+              this.paused = !this.paused;
+            }
+          } else if (e.key === 'r' || e.key === 'R') {
+            if (this.input.consumeJustPressed(e.key)) {
+              this.resetFormation();
+              this.triggerShake(SETTINGS.SHAKE_DURATION_MS);
+            }
+          }
+        }
+
+        triggerShake(durationMs) {
+          this.shakeUntil = performance.now() + durationMs;
+        }
+
+        resetFormation() {
+          // Var olan çöp adamları ekran merkezine yakın halka formasyonunda diz
+          if (this.stickmen.length === 0) {
+            this.stickmen.push(new Stickman(this.width / 2, this.height / 2));
+          }
+          const cx = this.width / 2;
+          const cy = this.height / 2;
+          const n = this.stickmen.length;
+          const baseRadius = 20;
+          for (let i = 0; i < n; i++) {
+            const ring = Math.floor(i / 8);
+            const angle = (i % 8) / 8 * Math.PI * 2;
+            const radius = baseRadius + ring * 30;
+            const x = cx + Math.cos(angle) * radius;
+            const y = cy + Math.sin(angle) * radius;
+            this.stickmen[i].resetTo(x, y);
+          }
+          // State'e yansıt
+          this.syncPositionsToState();
+          saveAppState(this.state);
+        }
+
+        onCanvasClick(e) {
+          const rect = this.canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
+          let picked = -1;
+          // Üste çizilenin seçilmesi için sondan başa
+          for (let i = this.stickmen.length - 1; i >= 0; i--) {
+            const s = this.stickmen[i];
+            const dx = x - s.x;
+            const dy = y - s.y;
+            if (dx * dx + dy * dy <= r * r) { picked = i; break; }
+          }
+          if (picked !== -1) {
+            if (e.ctrlKey || e.metaKey) {
+              if (this.selected.has(picked)) this.selected.delete(picked); else this.selected.add(picked);
+            } else {
+              this.selected.clear();
+              this.selected.add(picked);
+            }
+          }
+        }
+
+        resize() {
+          // Mevcut DPR'ı güncelle (bazı cihazlarda değişebilir)
+          const newDpr = Math.max(1, window.devicePixelRatio || 1);
+          this.dpr = newDpr;
+
+          // CSS boyutları (mantıksal px)
+          const rect = this.canvas.getBoundingClientRect();
+          this.width = Math.max(1, Math.round(rect.width));
+          this.height = Math.max(1, Math.round(rect.height));
+
+          // Gerçek piksel boyutları (backing store)
+          this.canvas.width = Math.round(this.width * this.dpr);
+          this.canvas.height = Math.round(this.height * this.dpr);
+
+          // Çizim kalitesi
+          this.ctx.imageSmoothingEnabled = true;
+
+          // Sınır dışına taşmayı önlemek için tüm çöp adamları clamp et
+          const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
+          for (const s of this.stickmen) {
+            s.x = clamp(s.x, r, Math.max(r, this.width - r));
+            s.y = clamp(s.y, r, Math.max(r, this.height - r));
+          }
+        }
+
+        computeShakeOffset() {
+          const now = performance.now();
+          if (now >= this.shakeUntil) return { x: 0, y: 0 };
+          const remaining = this.shakeUntil - now;
+          const t = remaining / SETTINGS.SHAKE_DURATION_MS; // 0..1
+          const amp = SETTINGS.SHAKE_AMPLITUDE_PX * t; // sönümlü
+          const x = (Math.random() * 2 - 1) * amp;
+          const y = (Math.random() * 2 - 1) * amp;
+          return { x, y };
+        }
+
+        drawBackground() {
+          // Önce arka planı kapla (cover mantığı, orantıyı koru, taşanı kırp)
+          const { ctx, width: W, height: H } = this;
+          const shake = this.computeShakeOffset();
+
+          if (this.bgImgLoaded) {
+            const iw = this.bgImg.naturalWidth;
+            const ih = this.bgImg.naturalHeight;
+            if (iw > 0 && ih > 0) {
+              const scale = Math.max(W / iw, H / ih);
+              const dw = iw * scale;
+              const dh = ih * scale;
+              const dx = Math.floor((W - dw) / 2 + shake.x);
+              const dy = Math.floor((H - dh) / 2 + shake.y);
+              ctx.drawImage(this.bgImg, dx, dy, Math.ceil(dw), Math.ceil(dh));
+              return;
+            }
+          }
+          // Yüklenemediyse basit degrade arka plan
+          const g = ctx.createLinearGradient(0, 0, 0, H);
+          g.addColorStop(0, '#0f2027');
+          g.addColorStop(1, '#203a43');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, W, H);
+        }
+
+        loop(now) {
+          const rawDt = (now - this.lastTime) / 1000;
+          this.lastTime = now;
+          const dt = Math.min(SETTINGS.MAX_DT_SECONDS, Math.max(0, rawDt));
+
+          // Ekranı temizle: backing store koordinatlarında temizle, sonra DPR transform kur
+          this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+          this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+          // Oyun güncellemesi
+          if (!this.paused) {
+            const idleInput = { getDirection: () => ({ x: 0, y: 0 }) };
+            for (let i = 0; i < this.stickmen.length; i++) {
+              const s = this.stickmen[i];
+              const inp = (this.selected.has(i)) ? this.input : idleInput;
+              s.update(dt, inp, this.width, this.height);
+            }
+            this.syncPositionsToState();
+            // Otomatik kaydı seyrekleştir
+            const nowMs = performance.now();
+            if (nowMs - this.lastAutosave > 600) {
+              saveAppState(this.state);
+              this.lastAutosave = nowMs;
+            }
+          }
+
+          // Çizim sırası: Arka plan -> Oyuncu -> HUD
+          this.drawBackground();
+          for (let i = 0; i < this.stickmen.length; i++) {
+            const s = this.stickmen[i];
+            s.draw(this.ctx);
+          }
+
+          // HUD metni
+          const hudText = [];
+          if (this.paused) hudText.push('Duraklatıldı (P)');
+          hudText.push(`Çöp Adam: ${this.stickmen.length}`);
+          hudText.push(`Seçili: ${this.selected.size}`);
+          hudText.push('Ok tuşları: hareket  |  P: duraklat  |  R: ortala');
+          this.hud.textContent = hudText.join('   •   ');
+
+          requestAnimationFrame(this.loop);
+        }
+
+        // ----- State entegrasyonu -----
+        setState(state) {
+          this.state = state;
+          const idx = clamp(state.currentPageIndex || 0, 0, Math.max(0, state.pages.length - 1));
+          this.setPageIndex(idx);
+        }
+
+        setPageIndex(index) {
+          if (!this.state) return;
+          this.state.currentPageIndex = clamp(index, 0, Math.max(0, this.state.pages.length - 1));
+          this.loadCurrentPage();
+          saveAppState(this.state);
+        }
+
+        loadCurrentPage() {
+          const page = this.getCurrentPage();
+          if (!page) return;
+          // Arka plan
+          this.loadBgFromPage(page);
+          // Karakterler
+          this.stickmen = page.stickmen.map((c) => new Stickman(
+            c.x ?? this.width / 2,
+            c.y ?? this.height / 2,
+            imageFromDataUrl(c.headImageDataUrl),
+            c.color || '#f5f5f5',
+            normalizeEquipment(c.leftHand),
+            normalizeEquipment(c.rightHand)
+          ));
+          // Eğer tümü (0,0) ise formasyon uygula
+          const allZero = page.stickmen.every(c => (!c.x && !c.y));
+          if (allZero) {
+            this.resetFormation();
+          }
+          this.selected.clear();
+          if (this.stickmen.length > 0) this.selected.add(0);
+        }
+
+        getCurrentPage() {
+          if (!this.state || !this.state.pages || this.state.pages.length === 0) return null;
+          return this.state.pages[this.state.currentPageIndex] || this.state.pages[0];
+        }
+
+        syncPositionsToState() {
+          const page = this.getCurrentPage();
+          if (!page) return;
+          for (let i = 0; i < this.stickmen.length; i++) {
+            const c = page.stickmen[i];
+            c.x = this.stickmen[i].x;
+            c.y = this.stickmen[i].y;
+            // Ekipman state senkronu (render sırasında değişmiyor ama güvence)
+            c.leftHand = serializeEquipment(this.stickmen[i].leftHand);
+            c.rightHand = serializeEquipment(this.stickmen[i].rightHand);
+          }
+        }
+
+        loadBgFromPage(page) {
+          const src = page.bgImageDataUrl || SETTINGS.BACKGROUND_SRC;
+          if (this.bgImg.src === src) return;
+          this.bgImgLoaded = false;
+          this.bgImg = new Image();
+          this.bgImg.addEventListener('load', () => { this.bgImgLoaded = true; });
+          this.bgImg.addEventListener('error', () => { this.bgImgLoaded = false; });
+          this.bgImg.src = src;
+        }
+      }
+
+      // ====== LocalStorage durum yönetimi ======
+      const STORAGE_KEY = 'stickman_demo_state_v1';
+
+      function loadAppState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return null;
+          const data = JSON.parse(raw);
+          if (!data || !Array.isArray(data.pages)) return null;
+          return data;
+        } catch (_) { return null; }
+      }
+
+      function saveAppState(state) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (_) {}
+      }
+
+      function defaultState() {
+        return {
+          currentPageIndex: 0,
+          pages: [ defaultPage('Sayfa 1') ]
+        };
+      }
+
+      function defaultPage(name) {
+        return {
+          id: 'page-' + Math.random().toString(36).slice(2, 8),
+          name: name || 'Sayfa',
+          bgImageDataUrl: null,
+          stickmen: [ defaultCharacter() ],
+        };
+      }
+
+      function defaultCharacter() {
+        return { x: 0, y: 0, color: '#f5f5f5', headImageDataUrl: null, leftHand: null, rightHand: null };
+      }
+
+      function imageFromDataUrl(dataUrl) {
+        if (!dataUrl) return null;
+        const img = new Image();
+        img.src = dataUrl;
+        return img;
+      }
+
+      function normalizeEquipment(e) {
+        if (!e) return null;
+        if (e.type === 'emoji' && typeof e.value === 'string') {
+          return { type: 'emoji', value: e.value, size: Math.max(12, Math.min(64, e.size || 22)) };
+        }
+        if (e.type === 'image' && typeof e.value === 'string') {
+          const img = imageFromDataUrl(e.value);
+          return { type: 'image', value: img, size: Math.max(12, Math.min(96, e.size || 22)) };
+        }
+        return null;
+      }
+
+      function serializeEquipment(e) {
+        if (!e) return null;
+        if (e.type === 'emoji') return { type: 'emoji', value: e.value, size: e.size };
+        if (e.type === 'image') return { type: 'image', value: e.value.src || null, size: e.size };
+        return null;
+      }
+
+      // =====================
+      // Başlat
+      // =====================
+      (function main(){
+        const canvas = document.getElementById('game');
+        const hud = document.getElementById('hud');
+        const ui = document.getElementById('ui');
+        // Klavyede odağı canvas'a al ki bazı tarayıcılarda ok tuşları sorunsuz çalışsın
+        canvas.tabIndex = 0;
+        canvas.focus({ preventScroll: true });
+        // Oyun kurulum
+        const game = new Game(canvas, hud);
+
+        // State yükle/oluştur ve oyuna ver
+        const loaded = loadAppState();
+        const state = loaded || defaultState();
+        game.setState(state);
+        saveAppState(state);
+
+        // Modal aç/kapat
+        const modal = document.getElementById('modal');
+        const openSettings = document.getElementById('openSettings');
+        const closeModal = document.getElementById('closeModal');
+        function setModalVisible(v){ modal.classList.toggle('hidden', !v); }
+        openSettings.addEventListener('click', (e)=>{ e.stopPropagation(); setModalVisible(true); });
+        closeModal.addEventListener('click', (e)=>{ e.stopPropagation(); setModalVisible(false); });
+        modal.addEventListener('click', (e)=>{ if (e.target === modal) setModalVisible(false); });
+
+        // Ekipman modalı
+        const equipModal = document.getElementById('equipModal');
+        const equipGrid = document.getElementById('equipGrid');
+        const equipClose = document.getElementById('equipClose');
+        const equipCloseTop = document.getElementById('equipCloseTop');
+        const equipFile = document.getElementById('equipFile');
+        let equipCtx = { charIndex: 0, hand: 'left' };
+        function setEquipVisible(v){ equipModal.classList.toggle('hidden', !v); }
+        equipClose.addEventListener('click', ()=> setEquipVisible(false));
+        equipCloseTop.addEventListener('click', ()=> setEquipVisible(false));
+        equipModal.addEventListener('click', (e)=>{ if (e.target === equipModal) setEquipVisible(false); });
+
+        function openEquipModal(charIndex, hand){
+          equipCtx = { charIndex, hand };
+          renderEquipGrid();
+          setEquipVisible(true);
+        }
+
+        const EQUIP_EMOJIS = ['🔫','🗡️','🪓','🛡️','🎤','🎸','🥁','🎻','🎯','🧲','🪄','🧪','🪙','📢','🔦','🪁','🧰','📷'];
+        function renderEquipGrid(){
+          equipGrid.innerHTML = '';
+          for (const em of EQUIP_EMOJIS) {
+            const b = document.createElement('button');
+            b.textContent = em;
+            b.addEventListener('click', ()=>{
+              const page = game.getCurrentPage();
+              const i = equipCtx.charIndex;
+              const data = { type: 'emoji', value: em, size: 22 };
+              if (equipCtx.hand === 'left') page.stickmen[i].leftHand = data; else page.stickmen[i].rightHand = data;
+              saveAppState(state);
+              game.loadCurrentPage();
+              setEquipVisible(false);
+              showTab('chars');
+            });
+            equipGrid.appendChild(b);
+          }
+        }
+        equipFile.addEventListener('change', ()=>{
+          const page = game.getCurrentPage();
+          const i = equipCtx.charIndex;
+          const file = equipFile.files && equipFile.files[0];
+          if (!file || !file.type.startsWith('image/')) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result);
+            const data = { type: 'image', value: dataUrl, size: 28 };
+            if (equipCtx.hand === 'left') page.stickmen[i].leftHand = data; else page.stickmen[i].rightHand = data;
+            saveAppState(state);
+            game.loadCurrentPage();
+            setEquipVisible(false);
+            equipFile.value = '';
+            showTab('chars');
+          };
+          reader.readAsDataURL(file);
+        });
+
+        // UI: Tablar
+        const tabs = ui.querySelectorAll('.tabs button');
+        const bodies = {
+          game: document.getElementById('tab-game'),
+          chars: document.getElementById('tab-chars'),
+          bg: document.getElementById('tab-bg'),
+          pages: document.getElementById('tab-pages')
+        };
+        function showTab(name) {
+          tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+          for (const k in bodies) bodies[k].style.display = (k === name ? '' : 'none');
+          if (name === 'chars') renderCharsPanel();
+          if (name === 'bg') renderBgPanel();
+          if (name === 'pages') renderPagesPanel();
+        }
+        tabs.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); showTab(btn.dataset.tab); }));
+
+        // ----- Karakterler Paneli -----
+        function renderCharsPanel() {
+          const panel = bodies.chars;
+          const page = game.getCurrentPage();
+          if (!page) { panel.innerHTML = '<div>Sayfa bulunamadı</div>'; return; }
+          const n = page.stickmen.length;
+          panel.innerHTML = '';
+
+          // Karakter sayısı ve düzenleme alanı info
+          const top = document.createElement('div');
+          top.className = 'row';
+          top.innerHTML = `<label>Karakter sayısı</label><input id="charCount" type="number" min="1" max="50" value="${n}" style="width:80px">`;
+          panel.appendChild(top);
+          const sub = document.createElement('div');
+          sub.className = 'small';
+          sub.textContent = 'Not: Düzenlemeler örnek olarak 1. karakterde yapılabilir; diğerleri aynı kontrolleri paylaşır.';
+          panel.appendChild(sub);
+          const applyBtn = document.createElement('button');
+          applyBtn.className = 'btn';
+          applyBtn.textContent = 'Uygula';
+          panel.appendChild(applyBtn);
+
+          // Liste
+          const list = document.createElement('div');
+          list.className = 'list';
+          panel.appendChild(list);
+
+          // Karakter önizlemeleri için küçük canvas'lar üret
+          const previews = [];
+
+          for (let i = 0; i < n; i++) {
+            const c = page.stickmen[i];
+            const row = document.createElement('div');
+            row.className = 'char-card';
+            row.innerHTML = `
+              <div class="cardHeader">
+                <strong>Karakter ${i+1}</strong>
+                <div style="display:flex;gap:6px;">
+                  <button class="btn" data-act="select" data-i="${i}">Seç</button>
+                  <button class="btn secondary" data-act="multi-toggle" data-i="${i}">Ctrl</button>
+                </div>
+              </div>
+              <div class="card-main">
+                <div style="display: flex; justify-content: center;">
+                  <canvas data-prev="${i}" width="160" height="140" style="background:rgba(255,255,255,.04);border-radius:8px;border:1px solid rgba(255,255,255,.1);"></canvas>
+                </div>
+                <div class="card-controls ${i!==0 ? 'pointer-events:none; opacity:.6;' : ''}">
+                  <div class="control-group">
+                    <label>Görünüm</label>
+                    <div class="input-row">
+                      <span style="font-size:11px;opacity:.8;">Renk:</span>
+                      <input type="color" value="${c.color || '#f5f5f5'}" data-act="color" data-i="${i}">
+                    </div>
+                  </div>
+                  <div class="control-group">
+                    <label>Baş</label>
+                    <div class="input-row">
+                      <input type="file" accept="image/*" data-act="head" data-i="${i}">
+                    </div>
+                    <div class="input-row">
+                      <span class="small">${c.headImageDataUrl ? 'Yüklü' : 'Yok'}</span>
+                      <button class="btn danger" data-act="clear-head" data-i="${i}" style="font-size:10px;padding:4px 6px;">Kaldır</button>
+                    </div>
+                  </div>
+                  <div class="control-group">
+                    <label>Sol El</label>
+                    <div class="input-row">
+                      <button class="btn" data-act="equip" data-hand="left" data-i="${i}" style="font-size:10px;padding:4px 8px;">Seç</button>
+                      <button class="btn secondary" data-act="equip-clear" data-hand="left" data-i="${i}" style="font-size:10px;padding:4px 8px;">Temizle</button>
+                    </div>
+                  </div>
+                  <div class="control-group">
+                    <label>Sağ El</label>
+                    <div class="input-row">
+                      <button class="btn" data-act="equip" data-hand="right" data-i="${i}" style="font-size:10px;padding:4px 8px;">Seç</button>
+                      <button class="btn secondary" data-act="equip-clear" data-hand="right" data-i="${i}" style="font-size:10px;padding:4px 8px;">Temizle</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+            list.appendChild(row);
+            previews.push(row.querySelector(`canvas[data-prev="${i}"]`));
+          }
+
+          // Önizlemeleri çiz: küçük bir Stickman örneği yaratıp center'da render et
+          function renderPreviews(){
+            for (let i = 0; i < n; i++) {
+              const c = page.stickmen[i];
+              const cnv = previews[i];
+              if (!cnv) continue;
+              const pctx = cnv.getContext('2d');
+              pctx.setTransform(1,0,0,1,0,0);
+              pctx.clearRect(0,0,cnv.width,cnv.height);
+              pctx.setTransform(1,0,0,1,0,0);
+              const sm = new Stickman(cnv.width/2, cnv.height/2 + 10, imageFromDataUrl(c.headImageDataUrl), c.color || '#f5f5f5', normalizeEquipment(c.leftHand), normalizeEquipment(c.rightHand));
+              sm.isMoving = false;
+              sm.animationElapsed = 0.5; // hafif poz
+              sm.draw(pctx);
+            }
+          }
+          renderPreviews();
+
+          // Olaylar
+          applyBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            const count = clamp(parseInt(panel.querySelector('#charCount').value, 10) || 1, 1, 50);
+            const curr = page.stickmen.length;
+            if (count > curr) {
+              for (let k = curr; k < count; k++) page.stickmen.push(defaultCharacter());
+            } else if (count < curr) {
+              page.stickmen.length = count;
+              // seçim setini düzelt
+              game.selected = new Set([...game.selected].filter(i => i < count));
+            }
+            saveAppState(state);
+            game.loadCurrentPage();
+            game.resetFormation();
+            renderCharsPanel();
+          });
+
+          list.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const i = parseInt(target.getAttribute('data-i'), 10);
+            if (target.getAttribute('data-act') === 'select') {
+              // Çoklu seçim için panelde tekli seç butonu: sadece bu karakter seçili olsun
+              game.selected.clear();
+              game.selected.add(i);
+            } else if (target.getAttribute('data-act') === 'multi-toggle') {
+              // Panelden Ctrl simülasyonu: set toggle
+              if (game.selected.has(i)) game.selected.delete(i); else game.selected.add(i);
+            } else if (target.getAttribute('data-act') === 'clear-head') {
+              page.stickmen[i].headImageDataUrl = null;
+              saveAppState(state);
+              game.loadCurrentPage();
+              renderCharsPanel();
+            } else if (target.getAttribute('data-act') === 'equip') {
+              openEquipModal(i, target.getAttribute('data-hand'));
+            } else if (target.getAttribute('data-act') === 'equip-clear') {
+              const hand = target.getAttribute('data-hand');
+              if (hand === 'left') page.stickmen[i].leftHand = null; else page.stickmen[i].rightHand = null;
+              saveAppState(state);
+              game.loadCurrentPage();
+              renderCharsPanel();
+            }
+          });
+
+          list.addEventListener('change', (e) => {
+            e.stopPropagation();
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            const i = parseInt(target.getAttribute('data-i'), 10);
+            const act = target.getAttribute('data-act');
+            if (act === 'color') {
+              page.stickmen[i].color = target.value;
+              saveAppState(state);
+              game.loadCurrentPage();
+              renderPreviews();
+            } else if (act === 'head') {
+              const input = e.target;
+              const file = input.files && input.files[0];
+              if (!file || !file.type.startsWith('image/')) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                page.stickmen[i].headImageDataUrl = String(reader.result);
+                saveAppState(state);
+                game.loadCurrentPage();
+                renderPreviews();
+              };
+              reader.readAsDataURL(file);
+              input.value = '';
+            }
+          });
+        }
+
+        // ----- Arka Plan Paneli -----
+        function renderBgPanel() {
+          const panel = bodies.bg;
+          const page = game.getCurrentPage();
+          panel.innerHTML = '';
+          const row1 = document.createElement('div');
+          row1.className = 'row';
+          row1.innerHTML = `<label>Arka plan yükle</label><input id="bgFile" type="file" accept="image/*">`;
+          const row2 = document.createElement('div');
+          row2.className = 'row';
+          row2.innerHTML = `<span class="small">${page.bgImageDataUrl ? 'Özel arka plan yüklü' : 'Varsayılan/Vitrin'}</span><button id="bgClear">Temizle</button>`;
+          const thumbsTitle = document.createElement('div');
+          thumbsTitle.innerHTML = '<strong>Hazır Arka Planlar (2D)</strong><div class="small">Çöp adam temalı 5 seçenek</div>';
+          const thumbs = document.createElement('div');
+          thumbs.className = 'thumb-grid';
+          panel.appendChild(row1);
+          panel.appendChild(row2);
+          panel.appendChild(thumbsTitle);
+          panel.appendChild(thumbs);
+
+          row1.querySelector('#bgFile').addEventListener('change', (e) => {
+            e.stopPropagation();
+            const input = e.target;
+            const file = input.files && input.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              page.bgImageDataUrl = String(reader.result);
+              saveAppState(state);
+              game.loadCurrentPage();
+              renderBgPanel();
+            };
+            reader.readAsDataURL(file);
+            input.value = '';
+          });
+          row2.querySelector('#bgClear').addEventListener('click', (e) => {
+            e.stopPropagation();
+            page.bgImageDataUrl = null;
+            saveAppState(state);
+            game.loadCurrentPage();
+            renderBgPanel();
+          });
+
+          // 5 adet 2D, telifsiz ve minimal arka planı canvas ile vitrine çizeceğiz (pattern geometrik)
+          const PRESETS = [
+            { name: 'Grid', draw: (ctx,w,h)=>{ ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='#222'; for(let x=0;x<w;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();} for(let y=0;y<h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();} }},
+            { name: 'Diagonal', draw: (ctx,w,h)=>{ ctx.fillStyle='#101316'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='rgba(0,255,255,.12)'; for(let d=-h; d<w; d+=24){ ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+h,h); ctx.stroke(); } }},
+            { name: 'Dots', draw: (ctx,w,h)=>{ ctx.fillStyle='#0f0f12'; ctx.fillRect(0,0,w,h); ctx.fillStyle='rgba(255,255,255,.08)'; for(let y=8;y<h;y+=16){ for(let x=8;x<w;x+=16){ ctx.beginPath(); ctx.arc(x,y,1.5,0,Math.PI*2); ctx.fill(); } } }},
+            { name: 'Waves', draw: (ctx,w,h)=>{ ctx.fillStyle='#0e1419'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='rgba(0,180,255,.18)'; ctx.lineWidth=2; for(let y=10;y<h;y+=18){ ctx.beginPath(); for(let x=0;x<=w;x+=10){ const yy = y + Math.sin((x+y)*0.08)*3; if(x===0) ctx.moveTo(0,yy); else ctx.lineTo(x,yy); } ctx.stroke(); } }},
+            { name: 'Rings', draw: (ctx,w,h)=>{ ctx.fillStyle='#131018'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='rgba(255,255,0,.15)'; for(let r=10;r<Math.max(w,h);r+=20){ ctx.beginPath(); ctx.arc(w/2,h/2,r,0,Math.PI*2); ctx.stroke(); } }}
+          ];
+
+          PRESETS.forEach((p, idx)=>{
+            const a = document.createElement('a');
+            a.className = 'thumb';
+            a.title = p.name;
+            const cnv = document.createElement('canvas');
+            cnv.width = 240; cnv.height = 160;
+            const c = cnv.getContext('2d');
+            p.draw(c, cnv.width, cnv.height);
+            a.appendChild(cnv);
+            a.addEventListener('click', (ev)=>{
+              ev.preventDefault();
+              // Canvas'ı dataURL'e çevirip sayfa arka planı yap
+              try {
+                page.bgImageDataUrl = cnv.toDataURL('image/png');
+                saveAppState(state);
+                game.loadCurrentPage();
+                renderBgPanel();
+              } catch(_) {
+                // Fallback: preset tekrar çizilsin (state'e özel işaret koymaya gerek yok)
+                page.bgImageDataUrl = cnv.toDataURL();
+                saveAppState(state);
+                game.loadCurrentPage();
+                renderBgPanel();
+              }
+            });
+            thumbs.appendChild(a);
+          });
+        }
+
+        // ----- Sayfalar Paneli -----
+        function renderPagesPanel() {
+          const panel = bodies.pages;
+          panel.innerHTML = '';
+          const list = document.createElement('div');
+          list.className = 'list';
+          panel.appendChild(list);
+
+          state.pages.forEach((p, i) => {
+            const item = document.createElement('div');
+            item.style.border = '1px solid rgba(255,255,255,.15)';
+            item.style.borderRadius = '6px';
+            item.style.padding = '6px';
+            item.innerHTML = `
+              <div class="row"><label>Ad</label><input type="text" value="${p.name}"><button data-act="sel" data-i="${i}">${i===state.currentPageIndex?'Aktif':'Seç'}</button></div>
+              <div class="row"><span class="small">Karakter: ${p.stickmen.length}</span><button data-act="del" data-i="${i}">Sil</button></div>
+            `;
+            // Ad değişimi
+            item.querySelector('input').addEventListener('input', (e) => {
+              p.name = e.target.value;
+              saveAppState(state);
+            });
+            list.appendChild(item);
+          });
+
+          const actions = document.createElement('div');
+          actions.className = 'row';
+          const addBtn = document.createElement('button');
+          addBtn.textContent = 'Yeni Sayfa';
+          actions.appendChild(document.createElement('div'));
+          actions.appendChild(addBtn);
+          panel.appendChild(actions);
+
+          list.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            const i = parseInt(t.getAttribute('data-i'), 10);
+            const act = t.getAttribute('data-act');
+            if (act === 'sel') {
+              game.setPageIndex(i);
+              renderPagesPanel();
+            } else if (act === 'del') {
+              if (state.pages.length <= 1) return;
+              state.pages.splice(i, 1);
+              if (state.currentPageIndex >= state.pages.length) state.currentPageIndex = state.pages.length - 1;
+              saveAppState(state);
+              game.setPageIndex(state.currentPageIndex);
+              renderPagesPanel();
+            }
+          });
+
+          addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.pages.push(defaultPage('Yeni Sayfa'));
+            saveAppState(state);
+            game.setPageIndex(state.pages.length - 1);
+            renderPagesPanel();
+          });
+        }
+
+        // Başlangıçta paneli hazırla
+        showTab('game');
+      })();
+    </script>
+  </body>
+  </html>
+
+
