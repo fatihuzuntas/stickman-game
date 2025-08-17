@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Çöp Adam - Canvas Demo</title>
+    <title>Stickman - Canvas Demo</title>
     <style>
-      /* Tam ekran, scroll yok, dokunmada kaydırmayı kapat */
+      /* Full screen, no scroll, disable scrolling on touch */
       html, body {
         height: 100%;
         margin: 0;
@@ -17,7 +17,7 @@
         overscroll-behavior: none;
       }
 
-      /* Canvas tam ekran; CSS boyutu mantıksal piksel, gerçek piksel tuvali JS ayarlayacak */
+      /* Canvas full screen; CSS size logical pixels, real pixel canvas JS will set */
       canvas#game {
         display: block;
         width: 100vw;
@@ -26,7 +26,7 @@
         cursor: default;
       }
 
-      /* İsteğe bağlı: duraklatma etiketi */
+      /* Optional: pause label */
       .hud {
         position: fixed;
         left: 0;
@@ -41,7 +41,7 @@
         text-shadow: 0 1px 2px rgba(0,0,0,.6);
       }
 
-      /* Basit kontrol paneli */
+      /* Simple control panel */
       .panel {
         display: grid;
         grid-template-columns: 1fr;
@@ -79,7 +79,7 @@
       .input-row input[type="color"] { width: 32px; height: 24px; border-radius: 4px; border: 1px solid rgba(255,255,255,.2); cursor: pointer; }
       .input-row input[type="file"] { font-size: 10px; flex: 1; }
 
-      /* Yüzen ayar butonu */
+      /* Floating settings button */
       .fab {
         position: fixed;
         right: 16px;
@@ -114,26 +114,26 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/twemoji.min.js" crossorigin="anonymous"></script>
   </head>
   <body>
-    <canvas id="game" aria-label="Çöp Adam Oyun Canvas"></canvas>
+    <canvas id="game" aria-label="Stickman Game Canvas"></canvas>
     <div class="hud" id="hud"></div>
-    <button id="openSettings" class="fab" title="Ayarlar">⚙️</button>
+    <button id="openSettings" class="fab" title="Settings">⚙️</button>
     <div id="modal" class="modal hidden" aria-modal="true" role="dialog">
       <div class="modal-dialog">
-        <div class="panel" aria-label="Kontroller" id="ui">
-          <div class="tabs">
-            <button data-tab="game" class="active">Oyun</button>
-            <button data-tab="chars">Karakterler</button>
-            <button data-tab="bg">Arka Plan</button>
-            <button data-tab="pages">Sayfalar</button>
-          </div>
-          <div class="tab-body" id="tab-game">
-            <div class="small">Ok tuşları: seçili karakteri hareket ettirir. Kanvasta tıklayarak karakter seç. P: duraklat, R: ortala. 1-9: karakter seç, 0: tümü seç.</div>
-          </div>
+                  <div class="panel" aria-label="Controls" id="ui">
+                      <div class="tabs">
+              <button data-tab="game" class="active">Game</button>
+              <button data-tab="chars">Characters</button>
+              <button data-tab="bg">Background</button>
+              <button data-tab="pages">Pages</button>
+            </div>
+                      <div class="tab-body" id="tab-game">
+              <div class="small">Arrow keys: move selected character. Click on canvas to select character. P: pause, R: center. 1-9: character select, Z+1-9: multi-select, 0: select all. A-L: actions (dance, push-up, jump, wave, head shake, squat, run, yoga, fight).</div>
+            </div>
           <div class="tab-body" id="tab-chars" style="display:none"></div>
           <div class="tab-body" id="tab-bg" style="display:none"></div>
           <div class="tab-body" id="tab-pages" style="display:none"></div>
         </div>
-        <div class="modal-actions"><button id="closeModal">Kapat</button></div>
+        <div class="modal-actions"><button id="closeModal">Close</button></div>
       </div>
     </div>
     <!-- Ekipman seçim alt modalı -->
@@ -141,37 +141,37 @@
       <div class="modal-dialog">
         <div class="panel">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-            <strong>Ekipman seç</strong>
-            <button id="equipCloseTop" class="small" style="border:1px solid rgba(255,255,255,.2);border-radius:8px;background:rgba(255,255,255,.08);color:#eee;cursor:pointer;padding:4px 8px;">Kapat</button>
+            <strong>Select Equipment</strong>
+            <button id="equipCloseTop" class="small" style="border:1px solid rgba(255,255,255,.2);border-radius:8px;background:rgba(255,255,255,.08);color:#eee;cursor:pointer;padding:4px 8px;">Close</button>
           </div>
           <div class="emoji-grid" id="equipGrid"></div>
-          <div class="row"><label>Özel resim</label><input id="equipFile" type="file" accept="image/*"></div>
-          <div class="modal-actions"><button id="equipClose">Kapat</button></div>
+          <div class="row"><label>Custom image</label><input id="equipFile" type="file" accept="image/*"></div>
+          <div class="modal-actions"><button id="equipClose">Close</button></div>
         </div>
       </div>
     </div>
 
     <script>
       // =====================
-      // Sabitler ve ayarlar
+      // Constants and settings
       // =====================
       const SETTINGS = {
-        // Hareket hızı mantıksal piksel/saniye
+        // Movement speed (logical px/sec)
         SPEED_PX_PER_SEC: 200,
-        // Çöp adam görsel yarıçapı (baş merkezinden sınır kontrolü için kapsayıcı yarıçap)
+        // Visual radius (used for simple pick/clamp based on head center)
         PLAYER_BOUNDING_RADIUS: 24,
-        // Delta time üst sınırı (arka plana alındığında dev adımları önlemek için)
+        // Max delta-time to avoid huge steps when tab is backgrounded
         MAX_DT_SECONDS: 0.1,
-        // Arka plan kaynağı; assets klasöründen okunur
+        // Background source; read from assets folder
         BACKGROUND_SRC: 'assets/bg.jpg',
-        // Reset sonrası hafif kamera sarsıntısı süresi
+        // Light camera shake duration after reset
         SHAKE_DURATION_MS: 150,
-        // Sarsıntı genliği (mantıksal piksel)
+        // Shake amplitude (logical px)
         SHAKE_AMPLITUDE_PX: 6,
       };
 
       // =====================
-      // Yardımcılar
+      // Helpers
       // =====================
       function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
@@ -188,41 +188,47 @@
       }
 
       // =====================
-      // Input sınıfı
+      // Input class
       // =====================
       class Input {
-        // Klavye ve dokunmatik yön girdilerini birleştirir
+        // Merges keyboard and touch directional inputs
         constructor(targetElement) {
           this.target = targetElement || window;
           this.keyState = new Set();
           this.justPressed = new Set();
-          // Dokunmatik/pointer yönleri (birden fazla temas birleşimi)
+          this.shiftPressed = false; // Track Shift state
+          // Touch/pointer directions (merge multiple contacts)
           this.pointerDirsById = new Map();
           this.activePointerIds = new Set();
 
-          // Klavye
+          // Keyboard
           window.addEventListener('keydown', (e) => {
-            // Ok tuşlarında sayfa kaymasını engelle
+            // Prevent page scrolling on arrow/space
             if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
+            
+            // Track Shift state
+            if (e.key === 'Shift') this.shiftPressed = true;
+            
             if (!this.keyState.has(e.key)) this.justPressed.add(e.key);
             this.keyState.add(e.key);
           }, { passive: false });
           window.addEventListener('keyup', (e) => {
             this.keyState.delete(e.key);
+            if (e.key === 'Shift') this.shiftPressed = false;
           });
 
-          // Pointer/dokunma: görünmez dört bölgeli overlay mantığı
+          // Pointer/touch: invisible four-quadrant overlay logic
           const onPointer = (type, e) => {
-            // Canvas koordinatlarında konum bul
+            // Get coordinates in canvas CSS space
             const rect = this.target.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            const id = e.pointerId || 0; // mouse için 0
+            const id = e.pointerId || 0; // 0 for mouse
             if (type === 'down') {
               this.activePointerIds.add(id);
               this.pointerDirsById.set(id, this._posToDirs(x, y, rect.width, rect.height));
             } else if (type === 'move') {
-              // Yalnızca basılı pointer/mouse sürükleme kabul edilir (fareyi takip etmesin)
+              // Accept only pressed pointer/mouse drag (no hover tracking)
               const isPressed = this.activePointerIds.has(id) || (e.buttons && e.buttons !== 0) || (e.pressure && e.pressure > 0);
               if (!isPressed) return;
               this.pointerDirsById.set(id, this._posToDirs(x, y, rect.width, rect.height));
@@ -239,7 +245,7 @@
         }
 
         _posToDirs(x, y, w, h) {
-          // Dört bölgeli kontrol: ekran merkezi referans
+          // Four-zone overlay: screen thirds as directional regions
           const left = x < w * 0.33;
           const right = x > w * 0.67;
           const up = y < h * 0.33;
@@ -253,16 +259,16 @@
           return had;
         }
 
-        // Birleşik yön vektörü (klavye + dokunma)
+        // Combined direction vector (keyboard + touch)
         getDirection() {
           let dx = 0, dy = 0;
-          // Klavye
+          // Keyboard
           if (this.keyState.has('ArrowLeft')) dx -= 1;
           if (this.keyState.has('ArrowRight')) dx += 1;
           if (this.keyState.has('ArrowUp')) dy -= 1;
           if (this.keyState.has('ArrowDown')) dy += 1;
 
-          // Dokunma: herhangi bir temas yönü birleşsin
+          // Touch: merge any active contact directions
           let touchLeft = false, touchRight = false, touchUp = false, touchDown = false;
           for (const dirs of this.pointerDirsById.values()) {
             touchLeft = touchLeft || dirs.left;
@@ -281,21 +287,24 @@
       }
 
       // =====================
-      // Player sınıfı
+      // Stickman (player) class
       // =====================
       class Stickman {
         constructor(x, y, headImage = null, color = '#f5f5f5', leftHand = null, rightHand = null) {
           this.x = x;
           this.y = y;
-          this.headImage = headImage; // Yüklü PNG baş (opsiyonel)
+          this.headImage = headImage; // Optional PNG head image
           this.color = color;
-          // Ekipman (sol ve sağ el) - Image veya Emoji çizimi
+          // Equipment (left and right hand) - image or emoji
           this.leftHand = leftHand;   // { type: 'emoji'|'image', value: '🔫'|HTMLImageElement, size: number }
-          this.rightHand = rightHand; // aynı yapı
-          // Basit çöp adam animasyonu için durum
+          this.rightHand = rightHand; // same structure
+          // Simple animation state
           this.animationElapsed = 0;
-          this.animationPhase = 0; // 0-1 arası ileri geri
+          this.animationPhase = 0; // 0..1 ping-pong phase
           this.isMoving = false;
+          this.currentAction = null;
+          this.actionTime = 0;
+          this.actionDuration = 0;
         }
 
         resetTo(x, y) {
@@ -304,51 +313,162 @@
           this.animationElapsed = 0;
           this.animationPhase = 0;
           this.isMoving = false;
+          this.currentAction = null;
+          this.actionTime = 0;
+          this.actionDuration = 0;
         }
 
         update(dt, input, boundsW, boundsH) {
-          const dir = input.getDirection();
-          const speed = SETTINGS.SPEED_PX_PER_SEC;
-          const vx = dir.x * speed;
-          const vy = dir.y * speed;
-          this.isMoving = (vx !== 0 || vy !== 0);
+          // Movement control – only when no action is playing
+          if (!this.currentAction) {
+            const dir = input.getDirection();
+            const speed = SETTINGS.SPEED_PX_PER_SEC;
+            const vx = dir.x * speed;
+            const vy = dir.y * speed;
+            this.isMoving = (vx !== 0 || vy !== 0);
 
-          this.x += vx * dt;
-          this.y += vy * dt;
+            this.x += vx * dt;
+            this.y += vy * dt;
 
-          // Ekran sınırları içinde kal
-          const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
-          this.x = clamp(this.x, r, Math.max(r, boundsW - r));
-          this.y = clamp(this.y, r, Math.max(r, boundsH - r));
+            // Keep inside screen bounds
+            const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
+            this.x = clamp(this.x, r, Math.max(r, boundsW - r));
+            this.y = clamp(this.y, r, Math.max(r, boundsH - r));
+          } else {
+            // While performing an action, stop normal movement
+            this.isMoving = false;
+            this.actionTime += dt;
+            
+            // End the action when its duration elapses
+            if (this.actionTime >= this.actionDuration) {
+              this.currentAction = null;
+              this.actionTime = 0;
+              this.actionDuration = 0;
+            }
+          }
 
-          // Yürüme animasyonu sadece hareketliyken ilerler
-          if (this.isMoving) {
+          // Animation tick
+          if (this.currentAction) {
+            // Action animation
+            const animSpeed = this.currentAction.animSpeed;
+            this.animationElapsed += dt * animSpeed;
+          } else if (this.isMoving) {
+            // Walk animation advances only while moving
             const animSpeed = 6;
             this.animationElapsed += dt * animSpeed;
           }
-          // 0..1 arasında ping-pong fazı
+          // 0..1 ping-pong phase
           const t = this.animationElapsed % 2; // 0..2
           this.animationPhase = t < 1 ? t : (2 - t);
         }
 
         draw(ctx) {
-          // Çöp adamı basit şekillerle çiz (baş, gövde, kollar, bacaklar)
+          // Render stickman (head, torso, arms, legs)
           ctx.save();
-          ctx.translate(this.x, this.y);
 
-          const headRadius = 14;
-          const bodyLen = 30;
-          const limbLen = 24; // daha uzun
+          // Base measures
+          let headRadius = 14;
+          let bodyScale = 1;
+          let limbScale = 1;
+          let torsoAngle = 0;     // Torso tilt (radians)
+          let headAngle = 0;      // Head tilt (radians)
+          let yOffset = 0;        // Vertical offset for the whole body
+          
+          // Convert animation phase to swing angle
+          let swing = 0.9 * (this.animationPhase * 2 - 1); // -amp..+amp
+          
+          // Action-dependent torso/head/offset adjustments (more semantic motions)
+          if (this.currentAction) {
+            const actionPhase = this.animationPhase;
+            switch (this.currentAction.name) {
+              case 'cheer':
+                // Arms up/down, subtle hop
+                swing = 1.6 * Math.sin(actionPhase * Math.PI * 2);
+                torsoAngle = 0.08 * Math.sin(actionPhase * Math.PI * 2);
+                headAngle = -0.06 * Math.sin(actionPhase * Math.PI * 2);
+                yOffset = -4 * Math.abs(Math.sin(actionPhase * Math.PI));
+                break;
+              case 'work':
+                // Lean forward like desk work, small arm swings
+                swing = 0.6 * Math.sin(actionPhase * Math.PI * 2);
+                torsoAngle = 0.25;
+                headAngle = -0.12;
+                yOffset = 2 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'jump':
+                swing = 1.2 * Math.sin(actionPhase * Math.PI * 2);
+                yOffset = -14 * Math.abs(Math.sin(actionPhase * Math.PI));
+                torsoAngle = 0.06 * Math.sin(actionPhase * Math.PI * 2);
+                headAngle = -torsoAngle * 0.5;
+                bodyScale = 1.0;
+                break;
+              case 'wave':
+                // Slight bow, one hand waves (arm section customizes)
+                swing = 0.4 * Math.sin(actionPhase * Math.PI * 2);
+                torsoAngle = 0.08;
+                headAngle = -0.04;
+                break;
+              case 'fear':
+                // Arms up, torso/head recoil
+                swing = 0;
+                torsoAngle = -0.15 * Math.sin(actionPhase * Math.PI * 4);
+                headAngle = 0.1 * Math.sin(actionPhase * Math.PI * 4);
+                yOffset = -2 * Math.abs(Math.sin(actionPhase * Math.PI * 2));
+                break;
+              case 'crouch':
+                swing = 0.8 * Math.sin(actionPhase * Math.PI * 2);
+                yOffset = 10 * Math.abs(Math.sin(actionPhase * Math.PI));
+                bodyScale = 0.88;
+                torsoAngle = 0.04 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'run':
+                swing = 1.8 * Math.sin(actionPhase * Math.PI * 3.5);
+                torsoAngle = 0.1 * Math.sin(actionPhase * Math.PI * 2);
+                headAngle = -torsoAngle * 0.5;
+                break;
+              case 'sleep':
+                // Head tilts sideways, minimal swing
+                swing = 0.2 * Math.sin(actionPhase * Math.PI * 1.2);
+                torsoAngle = 0.05 * Math.sin(actionPhase * Math.PI * 0.8);
+                headAngle = 0.35 * Math.sin(actionPhase * Math.PI * 0.8);
+                yOffset = 2;
+                break;
+              case 'fight':
+                swing = 2.2 * Math.sin(actionPhase * Math.PI * 6);
+                torsoAngle = 0.12 * Math.sin(actionPhase * Math.PI * 4);
+                headAngle = -0.08 * Math.sin(actionPhase * Math.PI * 4);
+                break;
+              case 'sit':
+                // Pose: low torso, bent legs, arms slightly forward
+                swing = 0;
+                yOffset = 12;
+                bodyScale = 0.9;
+                torsoAngle = 0.03;
+                headAngle = -0.03;
+                break;
+            }
+          } else if (this.isMoving) {
+            // Gentle walk sway while moving
+            torsoAngle = 0.06 * Math.sin(this.animationPhase * Math.PI * 2);
+            headAngle = -0.04 * Math.sin(this.animationPhase * Math.PI * 2);
+            yOffset = 1.5 * Math.sin(this.animationPhase * Math.PI * 4);
+          }
 
-          // Animasyon fazını açılara çevir
-          const swing = 0.9 * (this.animationPhase * 2 - 1); // -amp..+amp, sadece hareketliyken kullanılacak
+          const bodyLen = 30 * bodyScale;
+          const limbLen = 24 * limbScale;
+
+          // Transform: apply vertical offset and torso rotation
+          ctx.translate(this.x, this.y + yOffset);
+          ctx.rotate(torsoAngle);
 
           ctx.lineCap = 'round';
           ctx.lineWidth = 3;
           ctx.strokeStyle = this.color || '#f5f5f5';
 
-          // Baş: varsa PNG, yoksa daire
+          // Head: draw PNG if available, else circle (rotates with torso)
           const headCenterY = -headRadius - 4;
+          ctx.save();
+          ctx.rotate(headAngle);
           if (this.headImage && this.headImage.complete && this.headImage.naturalWidth > 0) {
             const size = headRadius * 2;
             ctx.drawImage(this.headImage, -size / 2, headCenterY - size / 2, size, size);
@@ -357,18 +477,73 @@
             ctx.arc(0, headCenterY, headRadius, 0, Math.PI * 2);
             ctx.stroke();
           }
+          ctx.restore();
 
-          // Gövde
+          // Torso
           ctx.beginPath();
           ctx.moveTo(0, -4);
           ctx.lineTo(0, bodyLen);
           ctx.stroke();
 
-          // Kollar: hareketliyken zıt salınım, dururken açık sabit poz
-          const armAngle = this.isMoving ? swing * 0.9 : 0.9;
-          const armAngleOpp = this.isMoving ? -armAngle : -0.9;
+          // Arms: per-action swing angles
+          let armAngle, armAngleOpp;
           const shoulderY = 10;
-          // Kolları ve ellerin konumlarını hesapla
+          
+          if (this.currentAction) {
+            // Per-action arm angles
+            const actionPhase = this.animationPhase;
+            switch (this.currentAction.name) {
+              case 'cheer':
+                armAngle = 1.7 * Math.sin(actionPhase * Math.PI * 2);
+                armAngleOpp = -1.7 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'work':
+                armAngle = 0.5 * Math.sin(actionPhase * Math.PI * 2);
+                armAngleOpp = -0.4 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'jump':
+                armAngle = 2.5 * Math.sin(actionPhase * Math.PI * 2);
+                armAngleOpp = -2.5 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'wave':
+                armAngle = 2.2 * Math.sin(actionPhase * Math.PI * 3);
+                armAngleOpp = 0.2;
+                break;
+              case 'fear':
+                armAngle = 2.0;
+                armAngleOpp = -2.0;
+                break;
+              case 'crouch':
+                armAngle = 0.8 * Math.sin(actionPhase * Math.PI * 2);
+                armAngleOpp = -0.8 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'run':
+                armAngle = 1.6 * Math.sin(actionPhase * Math.PI * 3.5);
+                armAngleOpp = -1.6 * Math.sin(actionPhase * Math.PI * 3.5);
+                break;
+              case 'sleep':
+                armAngle = 0.3 * Math.sin(actionPhase * Math.PI * 1.2);
+                armAngleOpp = 0.1 * Math.sin(actionPhase * Math.PI * 1.2);
+                break;
+              case 'fight':
+                armAngle = 2.6 * Math.sin(actionPhase * Math.PI * 6);
+                armAngleOpp = -2.6 * Math.sin(actionPhase * Math.PI * 6);
+                break;
+              case 'sit':
+                armAngle = 0.2;
+                armAngleOpp = -0.2;
+                break;
+              default:
+                armAngle = 0.9;
+                armAngleOpp = -0.9;
+            }
+          } else {
+            // Normal movement or idle
+            armAngle = this.isMoving ? swing * 0.9 : 0.9;
+            armAngleOpp = this.isMoving ? -armAngle : -0.9;
+          }
+          
+          // Compute hand positions and draw arms
           const leftHandPos = { x: Math.sin(armAngle) * limbLen, y: shoulderY + Math.cos(armAngle) * limbLen };
           const rightHandPos = { x: Math.sin(armAngleOpp) * limbLen, y: shoulderY + Math.cos(armAngleOpp) * limbLen };
           ctx.beginPath();
@@ -378,9 +553,62 @@
           ctx.lineTo(rightHandPos.x, rightHandPos.y);
           ctx.stroke();
 
-          // Bacaklar: hareketliyken kollarla ters faz, dururken açık sabit poz
-          const legAngle = this.isMoving ? -swing * 1.1 : 1.1;
-          const legAngleOpp = this.isMoving ? -legAngle : -1.1;
+          // Legs: per-action swing angles
+          let legAngle, legAngleOpp;
+          
+          if (this.currentAction) {
+            // Per-action leg angles
+            const actionPhase = this.animationPhase;
+            switch (this.currentAction.name) {
+              case 'cheer':
+                legAngle = -0.9 * Math.sin(actionPhase * Math.PI * 2);
+                legAngleOpp = 0.9 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'work':
+                legAngle = 0.8;
+                legAngleOpp = -0.8;
+                break;
+              case 'jump':
+                legAngle = -1.6 * Math.sin(actionPhase * Math.PI * 2);
+                legAngleOpp = 1.6 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'wave':
+                legAngle = 0.9 * Math.sin(actionPhase * Math.PI * 2);
+                legAngleOpp = -0.6 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'fear':
+                legAngle = -1.1;
+                legAngleOpp = 1.1;
+                break;
+              case 'crouch':
+                legAngle = -1.5 * Math.sin(actionPhase * Math.PI * 2);
+                legAngleOpp = 1.5 * Math.sin(actionPhase * Math.PI * 2);
+                break;
+              case 'run':
+                legAngle = -1.9 * Math.sin(actionPhase * Math.PI * 3.5);
+                legAngleOpp = 1.9 * Math.sin(actionPhase * Math.PI * 3.5);
+                break;
+              case 'sleep':
+                legAngle = 0.4 * Math.sin(actionPhase * Math.PI * 0.8);
+                legAngleOpp = -0.4 * Math.sin(actionPhase * Math.PI * 0.8);
+                break;
+              case 'fight':
+                legAngle = -2.2 * Math.sin(actionPhase * Math.PI * 6);
+                legAngleOpp = 2.2 * Math.sin(actionPhase * Math.PI * 6);
+                break;
+              case 'sit':
+                legAngle = 1.7;
+                legAngleOpp = -1.7;
+                break;
+              default:
+                legAngle = 1.1;
+                legAngleOpp = -1.1;
+            }
+          } else {
+            // Normal movement or idle
+            legAngle = this.isMoving ? -swing * 1.1 : 1.1;
+            legAngleOpp = this.isMoving ? -legAngle : -1.1;
+          }
           ctx.beginPath();
           ctx.moveTo(0, bodyLen);
           ctx.lineTo(Math.sin(legAngle) * limbLen, bodyLen + Math.cos(legAngle) * limbLen);
@@ -388,10 +616,35 @@
           ctx.lineTo(Math.sin(legAngleOpp) * limbLen, bodyLen + Math.cos(legAngleOpp) * limbLen);
           ctx.stroke();
 
-          // Ekipman çizimi (eller)
+          // Draw equipment (hands)
           this.drawEquipment(ctx, leftHandPos, rightHandPos);
 
           ctx.restore();
+        }
+
+        performAction(action) {
+          // If already performing an action, ignore new requests
+          if (this.currentAction) return;
+          
+          const actions = {
+            'a': { name: 'cheer',     duration: 2.2, animSpeed: 5 },
+            's': { name: 'work',      duration: 3.0, animSpeed: 4 },
+            'd': { name: 'jump',      duration: 1.2, animSpeed: 7 },
+            'f': { name: 'wave',      duration: 1.6, animSpeed: 5 },
+            'g': { name: 'fear',      duration: 2.0, animSpeed: 9 },
+            'h': { name: 'crouch',    duration: 1.8, animSpeed: 3 },
+            'j': { name: 'run',       duration: 2.5, animSpeed: 8 },
+            'k': { name: 'sleep',     duration: 3.5, animSpeed: 1.2 },
+            'l': { name: 'fight',     duration: 1.8, animSpeed: 10 },
+            'o': { name: 'sit',       duration: 2.0, animSpeed: 2 }
+          };
+          
+          if (actions[action]) {
+            this.currentAction = actions[action];
+            this.actionTime = 0;
+            this.actionDuration = actions[action].duration;
+            this.animationElapsed = 0; // Reset animation phase
+          }
         }
 
         drawEquipment(ctx, leftPos, rightPos) {
@@ -415,7 +668,7 @@
       }
 
       // =====================
-      // Game sınıfı
+      // Game class
       // =====================
       class Game {
         constructor(canvas, hudEl) {
@@ -425,37 +678,37 @@
           this.input = new Input(canvas);
           this.dpr = Math.max(1, window.devicePixelRatio || 1);
 
-          // Arka plan resmi
+          // Background image
           this.bgImg = new Image();
           this.bgImgLoaded = false;
           this.bgImg.addEventListener('load', () => { this.bgImgLoaded = true; });
           this.bgImg.addEventListener('error', () => { this.bgImgLoaded = false; });
           this.bgImg.src = SETTINGS.BACKGROUND_SRC;
 
-          // Boyutlar (mantıksal px)
+          // Logical size (CSS px)
           this.width = 0;
           this.height = 0;
 
-          // Kamera sarsıntısı
+          // Camera shake
           this.shakeUntil = 0;
 
-          // Çoklu çöp adam listesi (anlık runtime kopyası)
+          // Runtime stickman list
           this.stickmen = [];
-          // Çoklu seçim desteği
+          // Multi-selection support
           this.selected = new Set();
 
-          // Durum (localStorage ile)
+          // State (with localStorage)
           this.state = null;
           this.lastAutosave = performance.now();
 
-          // Oyun akışı
+          // Game loop state
           this.paused = false;
           this.lastTime = performance.now();
 
-          // Olaylar
+          // Events
           window.addEventListener('resize', () => this.resize());
           window.addEventListener('keydown', (e) => this.onKeyDown(e));
-          // Çöp adam seçimi için tıklama
+          // Click to select stickman on canvas
           this.canvas.addEventListener('click', (e) => this.onCanvasClick(e));
 
           this.resize();
@@ -464,9 +717,9 @@
         }
 
         onKeyDown(e) {
-          // Duraklatma / yeniden başlatma kontrolü
+          // Pause / reset controls
           if (e.key === 'p' || e.key === 'P') {
-            // Tekrarlı baskıda toggle yağmurunu önlemek için justPressed kullan
+            // Use justPressed to avoid repeat storms
             if (this.input.consumeJustPressed(e.key)) {
               this.paused = !this.paused;
             }
@@ -476,21 +729,47 @@
               this.triggerShake(SETTINGS.SHAKE_DURATION_MS);
             }
           } else if (e.key >= '1' && e.key <= '9') {
-            // Sayı tuşları ile karakter seçimi (1-9)
-            if (this.input.consumeJustPressed(e.key)) {
-              const charIndex = parseInt(e.key, 10) - 1; // 1-9 -> 0-8
-              if (charIndex < this.stickmen.length) {
+            // Number-key selection (1-9)
+            const charIndex = parseInt(e.key, 10) - 1; // 1-9 -> 0-8
+            if (charIndex < this.stickmen.length) {
+              // Hold Z for multi-select toggle
+              if (this.input.keyState.has('z') || this.input.keyState.has('Z')) {
+                // Z + number: toggle in/out
+                if (this.selected.has(charIndex)) {
+                  this.selected.delete(charIndex);
+                } else {
+                  this.selected.add(charIndex);
+                }
+              } else {
+                // Plain number: single selection
                 this.selected.clear();
                 this.selected.add(charIndex);
               }
             }
           } else if (e.key === '0') {
-            // 0 tuşu ile tüm karakterleri seç
-            if (this.input.consumeJustPressed(e.key)) {
+            // 0 selects all characters
+            if (this.input.keyState.has('z') || this.input.keyState.has('Z')) {
+              // Z + 0: clear selection
+              this.selected.clear();
+            } else {
+              // Plain 0: select all
               this.selected.clear();
               for (let i = 0; i < this.stickmen.length; i++) {
                 this.selected.add(i);
               }
+            }
+          } else if (e.key === 'z' || e.key === 'Z') {
+            // Z clears selection immediately
+            this.selected.clear();
+          } else if (['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'o'].includes(e.key.toLowerCase())) {
+            // Action keys – perform on selected characters
+            if (this.input.consumeJustPressed(e.key)) {
+              const action = e.key.toLowerCase();
+              this.selected.forEach(index => {
+                if (this.stickmen[index]) {
+                  this.stickmen[index].performAction(action);
+                }
+              });
             }
           }
         }
@@ -500,7 +779,7 @@
         }
 
         resetFormation() {
-          // Var olan çöp adamları ekran merkezine yakın halka formasyonunda diz
+          // Arrange around screen center in rings
           if (this.stickmen.length === 0) {
             this.stickmen.push(new Stickman(this.width / 2, this.height / 2));
           }
@@ -516,7 +795,7 @@
             const y = cy + Math.sin(angle) * radius;
             this.stickmen[i].resetTo(x, y);
           }
-          // State'e yansıt
+          // Sync back to state
           this.syncPositionsToState();
           saveAppState(this.state);
         }
@@ -527,7 +806,7 @@
           const y = e.clientY - rect.top;
           const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
           let picked = -1;
-          // Üste çizilenin seçilmesi için sondan başa
+          // Iterate backward to pick top-most
           for (let i = this.stickmen.length - 1; i >= 0; i--) {
             const s = this.stickmen[i];
             const dx = x - s.x;
@@ -545,23 +824,23 @@
         }
 
         resize() {
-          // Mevcut DPR'ı güncelle (bazı cihazlarda değişebilir)
+          // Update DPR (may change on some devices)
           const newDpr = Math.max(1, window.devicePixelRatio || 1);
           this.dpr = newDpr;
 
-          // CSS boyutları (mantıksal px)
+          // CSS logical size (px)
           const rect = this.canvas.getBoundingClientRect();
           this.width = Math.max(1, Math.round(rect.width));
           this.height = Math.max(1, Math.round(rect.height));
 
-          // Gerçek piksel boyutları (backing store)
+          // Backing-store (real pixel) size
           this.canvas.width = Math.round(this.width * this.dpr);
           this.canvas.height = Math.round(this.height * this.dpr);
 
-          // Çizim kalitesi
+          // Rendering quality flags
           this.ctx.imageSmoothingEnabled = true;
 
-          // Sınır dışına taşmayı önlemek için tüm çöp adamları clamp et
+          // Clamp all stickmen to keep them on-screen
           const r = SETTINGS.PLAYER_BOUNDING_RADIUS;
           for (const s of this.stickmen) {
             s.x = clamp(s.x, r, Math.max(r, this.width - r));
@@ -574,14 +853,14 @@
           if (now >= this.shakeUntil) return { x: 0, y: 0 };
           const remaining = this.shakeUntil - now;
           const t = remaining / SETTINGS.SHAKE_DURATION_MS; // 0..1
-          const amp = SETTINGS.SHAKE_AMPLITUDE_PX * t; // sönümlü
+          const amp = SETTINGS.SHAKE_AMPLITUDE_PX * t; // damped
           const x = (Math.random() * 2 - 1) * amp;
           const y = (Math.random() * 2 - 1) * amp;
           return { x, y };
         }
 
         drawBackground() {
-          // Önce arka planı kapla (cover mantığı, orantıyı koru, taşanı kırp)
+          // Cover fit background (preserve aspect, crop overflow)
           const { ctx, width: W, height: H } = this;
           const shake = this.computeShakeOffset();
 
@@ -598,7 +877,7 @@
               return;
             }
           }
-          // Yüklenemediyse basit degrade arka plan
+          // If not loaded, draw a simple gradient
           const g = ctx.createLinearGradient(0, 0, 0, H);
           g.addColorStop(0, '#0f2027');
           g.addColorStop(1, '#203a43');
@@ -611,12 +890,12 @@
           this.lastTime = now;
           const dt = Math.min(SETTINGS.MAX_DT_SECONDS, Math.max(0, rawDt));
 
-          // Ekranı temizle: backing store koordinatlarında temizle, sonra DPR transform kur
+          // Clear backing store, then apply DPR transform
           this.ctx.setTransform(1, 0, 0, 1, 0, 0);
           this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
           this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
 
-          // Oyun güncellemesi
+          // World update
           if (!this.paused) {
             const idleInput = { getDirection: () => ({ x: 0, y: 0 }) };
             for (let i = 0; i < this.stickmen.length; i++) {
@@ -625,7 +904,7 @@
               s.update(dt, inp, this.width, this.height);
             }
             this.syncPositionsToState();
-            // Otomatik kaydı seyrekleştir
+            // Throttle autosave
             const nowMs = performance.now();
             if (nowMs - this.lastAutosave > 600) {
               saveAppState(this.state);
@@ -633,25 +912,25 @@
             }
           }
 
-          // Çizim sırası: Arka plan -> Oyuncu -> HUD
+          // Draw order: background -> characters -> HUD
           this.drawBackground();
           for (let i = 0; i < this.stickmen.length; i++) {
             const s = this.stickmen[i];
             s.draw(this.ctx);
           }
 
-          // HUD metni
+          // HUD text
           const hudText = [];
-          if (this.paused) hudText.push('Duraklatıldı (P)');
-          hudText.push(`Çöp Adam: ${this.stickmen.length}`);
-          hudText.push(`Seçili: ${this.selected.size}`);
-          hudText.push('Ok tuşları: hareket  |  P: duraklat  |  R: ortala  |  1-9: karakter seç  |  0: tümü seç');
+          if (this.paused) hudText.push('Paused (P)');
+          hudText.push(`Stickmen: ${this.stickmen.length}`);
+          hudText.push(`Selected: ${this.selected.size}`);
+          hudText.push('Arrow keys: move  |  P: pause  |  R: center  |  1-9: character select  |  Z+1-9: multi-select  |  0: select all  |  A-L, O: actions (Cheer, Work, Jump, Wave, Fear, Crouch, Run, Sleep, Fight, Sit)');
           this.hud.textContent = hudText.join('   •   ');
 
           requestAnimationFrame(this.loop);
         }
 
-        // ----- State entegrasyonu -----
+        // ----- State integration -----
         setState(state) {
           this.state = state;
           const idx = clamp(state.currentPageIndex || 0, 0, Math.max(0, state.pages.length - 1));
@@ -679,7 +958,7 @@
             normalizeEquipment(c.leftHand),
             normalizeEquipment(c.rightHand)
           ));
-          // Eğer tümü (0,0) ise formasyon uygula
+          // If all are at (0,0), apply formation
           const allZero = page.stickmen.every(c => (!c.x && !c.y));
           if (allZero) {
             this.resetFormation();
@@ -700,7 +979,7 @@
             const c = page.stickmen[i];
             c.x = this.stickmen[i].x;
             c.y = this.stickmen[i].y;
-            // Ekipman state senkronu (render sırasında değişmiyor ama güvence)
+            // Equipment state sync (doesn't change during render but for safety)
             c.leftHand = serializeEquipment(this.stickmen[i].leftHand);
             c.rightHand = serializeEquipment(this.stickmen[i].rightHand);
           }
@@ -717,7 +996,7 @@
         }
       }
 
-      // ====== LocalStorage durum yönetimi ======
+      // ====== LocalStorage state management ======
       const STORAGE_KEY = 'stickman_demo_state_v1';
 
       function loadAppState() {
@@ -737,14 +1016,14 @@
       function defaultState() {
         return {
           currentPageIndex: 0,
-          pages: [ defaultPage('Sayfa 1') ]
+          pages: [ defaultPage('Page 1') ]
         };
       }
 
       function defaultPage(name) {
         return {
           id: 'page-' + Math.random().toString(36).slice(2, 8),
-          name: name || 'Sayfa',
+          name: name || 'Page',
           bgImageDataUrl: null,
           stickmen: [ defaultCharacter() ],
         };
@@ -781,25 +1060,25 @@
       }
 
       // =====================
-      // Başlat
+      // Bootstrap
       // =====================
       (function main(){
         const canvas = document.getElementById('game');
         const hud = document.getElementById('hud');
         const ui = document.getElementById('ui');
-        // Klavyede odağı canvas'a al ki bazı tarayıcılarda ok tuşları sorunsuz çalışsın
+        // Focus the canvas so arrow keys work immediately
         canvas.tabIndex = 0;
         canvas.focus({ preventScroll: true });
-        // Oyun kurulum
+        // Create game instance
         const game = new Game(canvas, hud);
 
-        // State yükle/oluştur ve oyuna ver
+        // Load/create state and attach to game
         const loaded = loadAppState();
         const state = loaded || defaultState();
         game.setState(state);
         saveAppState(state);
 
-        // Modal aç/kapat
+        // Modal open/close
         const modal = document.getElementById('modal');
         const openSettings = document.getElementById('openSettings');
         const closeModal = document.getElementById('closeModal');
@@ -808,7 +1087,7 @@
         closeModal.addEventListener('click', (e)=>{ e.stopPropagation(); setModalVisible(false); });
         modal.addEventListener('click', (e)=>{ if (e.target === modal) setModalVisible(false); });
 
-        // Ekipman modalı
+        // Equipment modal
         const equipModal = document.getElementById('equipModal');
         const equipGrid = document.getElementById('equipGrid');
         const equipClose = document.getElementById('equipClose');
@@ -864,7 +1143,7 @@
           reader.readAsDataURL(file);
         });
 
-        // UI: Tablar
+        // UI: Tabs
         const tabs = ui.querySelectorAll('.tabs button');
         const bodies = {
           game: document.getElementById('tab-game'),
@@ -881,34 +1160,34 @@
         }
         tabs.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); showTab(btn.dataset.tab); }));
 
-        // ----- Karakterler Paneli -----
+        // ----- Characters Panel -----
         function renderCharsPanel() {
           const panel = bodies.chars;
           const page = game.getCurrentPage();
-          if (!page) { panel.innerHTML = '<div>Sayfa bulunamadı</div>'; return; }
+          if (!page) { panel.innerHTML = '<div>Page not found</div>'; return; }
           const n = page.stickmen.length;
           panel.innerHTML = '';
 
-          // Karakter sayısı ve düzenleme alanı info
+          // Character count and editor info
           const top = document.createElement('div');
           top.className = 'row';
-          top.innerHTML = `<label>Karakter sayısı</label><input id="charCount" type="number" min="1" max="50" value="${n}" style="width:80px">`;
+          top.innerHTML = `<label>Character count</label><input id="charCount" type="number" min="1" max="50" value="${n}" style="width:80px">`;
           panel.appendChild(top);
           const sub = document.createElement('div');
           sub.className = 'small';
-          sub.textContent = 'Not: Düzenlemeler örnek olarak 1. karakterde yapılabilir; diğerleri aynı kontrolleri paylaşır.';
+          sub.textContent = 'Note: Editing can be done on the 1st character as an example; others share the same controls.';
           panel.appendChild(sub);
           const applyBtn = document.createElement('button');
           applyBtn.className = 'btn';
-          applyBtn.textContent = 'Uygula';
+          applyBtn.textContent = 'Apply';
           panel.appendChild(applyBtn);
 
-          // Liste
+          // List
           const list = document.createElement('div');
           list.className = 'list';
           panel.appendChild(list);
 
-          // Karakter önizlemeleri için küçük canvas'lar üret
+          // Create small canvases for live previews
           const previews = [];
 
           for (let i = 0; i < n; i++) {
@@ -917,9 +1196,9 @@
             row.className = 'char-card';
             row.innerHTML = `
               <div class="cardHeader">
-                <strong>Karakter ${i+1}</strong>
+                <strong>Character ${i+1}</strong>
                 <div style="display:flex;gap:6px;">
-                  <button class="btn" data-act="select" data-i="${i}">Seç</button>
+                  <button class="btn" data-act="select" data-i="${i}">Select</button>
                   <button class="btn secondary" data-act="multi-toggle" data-i="${i}">Ctrl</button>
                 </div>
               </div>
@@ -929,34 +1208,34 @@
                 </div>
                 <div class="card-controls ${i!==0 ? 'pointer-events:none; opacity:.6;' : ''}">
                   <div class="control-group">
-                    <label>Görünüm</label>
+                    <label>Appearance</label>
                     <div class="input-row">
-                      <span style="font-size:11px;opacity:.8;">Renk:</span>
+                      <span style="font-size:11px;opacity:.8;">Color:</span>
                       <input type="color" value="${c.color || '#f5f5f5'}" data-act="color" data-i="${i}">
                     </div>
                   </div>
                   <div class="control-group">
-                    <label>Baş</label>
+                    <label>Head</label>
                     <div class="input-row">
                       <input type="file" accept="image/*" data-act="head" data-i="${i}">
                     </div>
                     <div class="input-row">
-                      <span class="small">${c.headImageDataUrl ? 'Yüklü' : 'Yok'}</span>
-                      <button class="btn danger" data-act="clear-head" data-i="${i}" style="font-size:10px;padding:4px 6px;">Kaldır</button>
+                      <span class="small">${c.headImageDataUrl ? 'Loaded' : 'None'}</span>
+                      <button class="btn danger" data-act="clear-head" data-i="${i}" style="font-size:10px;padding:4px 6px;">Remove</button>
                     </div>
                   </div>
                   <div class="control-group">
-                    <label>Sol El</label>
+                    <label>Left Hand</label>
                     <div class="input-row">
-                      <button class="btn" data-act="equip" data-hand="left" data-i="${i}" style="font-size:10px;padding:4px 8px;">Seç</button>
-                      <button class="btn secondary" data-act="equip-clear" data-hand="left" data-i="${i}" style="font-size:10px;padding:4px 8px;">Temizle</button>
+                      <button class="btn" data-act="equip" data-hand="left" data-i="${i}" style="font-size:10px;padding:4px 8px;">Select</button>
+                      <button class="btn secondary" data-act="equip-clear" data-hand="left" data-i="${i}" style="font-size:10px;padding:4px 8px;">Clear</button>
                     </div>
                   </div>
                   <div class="control-group">
-                    <label>Sağ El</label>
+                    <label>Right Hand</label>
                     <div class="input-row">
-                      <button class="btn" data-act="equip" data-hand="right" data-i="${i}" style="font-size:10px;padding:4px 8px;">Seç</button>
-                      <button class="btn secondary" data-act="equip-clear" data-hand="right" data-i="${i}" style="font-size:10px;padding:4px 8px;">Temizle</button>
+                      <button class="btn" data-act="equip" data-hand="right" data-i="${i}" style="font-size:10px;padding:4px 8px;">Select</button>
+                      <button class="btn secondary" data-act="equip-clear" data-hand="right" data-i="${i}" style="font-size:10px;padding:4px 8px;">Clear</button>
                     </div>
                   </div>
                 </div>
@@ -966,7 +1245,7 @@
             previews.push(row.querySelector(`canvas[data-prev="${i}"]`));
           }
 
-          // Önizlemeleri çiz: küçük bir Stickman örneği yaratıp center'da render et
+          // Draw previews: small Stickman centered in canvas
           function renderPreviews(){
             for (let i = 0; i < n; i++) {
               const c = page.stickmen[i];
@@ -978,13 +1257,13 @@
               pctx.setTransform(1,0,0,1,0,0);
               const sm = new Stickman(cnv.width/2, cnv.height/2 + 10, imageFromDataUrl(c.headImageDataUrl), c.color || '#f5f5f5', normalizeEquipment(c.leftHand), normalizeEquipment(c.rightHand));
               sm.isMoving = false;
-              sm.animationElapsed = 0.5; // hafif poz
+              sm.animationElapsed = 0.5; // slight pose
               sm.draw(pctx);
             }
           }
           renderPreviews();
 
-          // Olaylar
+          // Events
           applyBtn.addEventListener('click', (ev) => {
             ev.stopPropagation();
             const count = clamp(parseInt(panel.querySelector('#charCount').value, 10) || 1, 1, 50);
@@ -993,7 +1272,7 @@
               for (let k = curr; k < count; k++) page.stickmen.push(defaultCharacter());
             } else if (count < curr) {
               page.stickmen.length = count;
-              // seçim setini düzelt
+              // Fix selection set if count shrinks
               game.selected = new Set([...game.selected].filter(i => i < count));
             }
             saveAppState(state);
@@ -1008,11 +1287,11 @@
             if (!(target instanceof HTMLElement)) return;
             const i = parseInt(target.getAttribute('data-i'), 10);
             if (target.getAttribute('data-act') === 'select') {
-              // Çoklu seçim için panelde tekli seç butonu: sadece bu karakter seçili olsun
+              // Panel: single-select button (only this character)
               game.selected.clear();
               game.selected.add(i);
             } else if (target.getAttribute('data-act') === 'multi-toggle') {
-              // Panelden Ctrl simülasyonu: set toggle
+              // Panel: multi-toggle (Ctrl simulation)
               if (game.selected.has(i)) game.selected.delete(i); else game.selected.add(i);
             } else if (target.getAttribute('data-act') === 'clear-head') {
               page.stickmen[i].headImageDataUrl = null;
@@ -1058,19 +1337,19 @@
           });
         }
 
-        // ----- Arka Plan Paneli -----
+        // ----- Background Panel -----
         function renderBgPanel() {
           const panel = bodies.bg;
           const page = game.getCurrentPage();
           panel.innerHTML = '';
           const row1 = document.createElement('div');
           row1.className = 'row';
-          row1.innerHTML = `<label>Arka plan yükle</label><input id="bgFile" type="file" accept="image/*">`;
+          row1.innerHTML = `<label>Load background</label><input id="bgFile" type="file" accept="image/*">`;
           const row2 = document.createElement('div');
           row2.className = 'row';
-          row2.innerHTML = `<span class="small">${page.bgImageDataUrl ? 'Özel arka plan yüklü' : 'Varsayılan/Vitrin'}</span><button id="bgClear">Temizle</button>`;
+          row2.innerHTML = `<span class="small">${page.bgImageDataUrl ? 'Custom background loaded' : 'Default/Showcase'}</span><button id="bgClear">Clear</button>`;
           const thumbsTitle = document.createElement('div');
-          thumbsTitle.innerHTML = '<strong>Hazır Arka Planlar (2D)</strong><div class="small">Çöp adam temalı 5 seçenek</div>';
+          thumbsTitle.innerHTML = '<strong>Ready Backgrounds (2D)</strong><div class="small">Stickman themed 5 options</div>';
           const thumbs = document.createElement('div');
           thumbs.className = 'thumb-grid';
           panel.appendChild(row1);
@@ -1101,7 +1380,7 @@
             renderBgPanel();
           });
 
-          // 5 adet 2D, telifsiz ve minimal arka planı canvas ile vitrine çizeceğiz (pattern geometrik)
+          // 5 simple 2D preset backgrounds rendered via canvas (geometric)
           const PRESETS = [
             { name: 'Grid', draw: (ctx,w,h)=>{ ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='#222'; for(let x=0;x<w;x+=20){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();} for(let y=0;y<h;y+=20){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();} }},
             { name: 'Diagonal', draw: (ctx,w,h)=>{ ctx.fillStyle='#101316'; ctx.fillRect(0,0,w,h); ctx.strokeStyle='rgba(0,255,255,.12)'; for(let d=-h; d<w; d+=24){ ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+h,h); ctx.stroke(); } }},
@@ -1121,14 +1400,14 @@
             a.appendChild(cnv);
             a.addEventListener('click', (ev)=>{
               ev.preventDefault();
-              // Canvas'ı dataURL'e çevirip sayfa arka planı yap
+              // Convert canvas to Data URL and set as page background
               try {
                 page.bgImageDataUrl = cnv.toDataURL('image/png');
                 saveAppState(state);
                 game.loadCurrentPage();
                 renderBgPanel();
               } catch(_) {
-                // Fallback: preset tekrar çizilsin (state'e özel işaret koymaya gerek yok)
+                // Fallback: still store data URL
                 page.bgImageDataUrl = cnv.toDataURL();
                 saveAppState(state);
                 game.loadCurrentPage();
@@ -1139,7 +1418,7 @@
           });
         }
 
-        // ----- Sayfalar Paneli -----
+        // ----- Pages Panel -----
         function renderPagesPanel() {
           const panel = bodies.pages;
           panel.innerHTML = '';
@@ -1153,10 +1432,10 @@
             item.style.borderRadius = '6px';
             item.style.padding = '6px';
             item.innerHTML = `
-              <div class="row"><label>Ad</label><input type="text" value="${p.name}"><button data-act="sel" data-i="${i}">${i===state.currentPageIndex?'Aktif':'Seç'}</button></div>
-              <div class="row"><span class="small">Karakter: ${p.stickmen.length}</span><button data-act="del" data-i="${i}">Sil</button></div>
+              <div class="row"><label>Name</label><input type="text" value="${p.name}"><button data-act="sel" data-i="${i}">${i===state.currentPageIndex?'Active':'Select'}</button></div>
+              <div class="row"><span class="small">Characters: ${p.stickmen.length}</span><button data-act="del" data-i="${i}">Delete</button></div>
             `;
-            // Ad değişimi
+            // Page rename handler
             item.querySelector('input').addEventListener('input', (e) => {
               p.name = e.target.value;
               saveAppState(state);
@@ -1167,7 +1446,7 @@
           const actions = document.createElement('div');
           actions.className = 'row';
           const addBtn = document.createElement('button');
-          addBtn.textContent = 'Yeni Sayfa';
+          addBtn.textContent = 'New Page';
           actions.appendChild(document.createElement('div'));
           actions.appendChild(addBtn);
           panel.appendChild(actions);
@@ -1193,14 +1472,14 @@
 
           addBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            state.pages.push(defaultPage('Yeni Sayfa'));
+            state.pages.push(defaultPage('New Page'));
             saveAppState(state);
             game.setPageIndex(state.pages.length - 1);
             renderPagesPanel();
           });
         }
 
-        // Başlangıçta paneli hazırla
+        // Initialize with Game tab visible
         showTab('game');
       })();
     </script>
